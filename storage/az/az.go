@@ -1,6 +1,7 @@
 package az
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -105,11 +106,12 @@ func (st *AzStorage) PutObject(obj *storage.Object) error {
 				storage.Log.Warnf("failed to close input stream: %v", err)
 			}
 		}(obj.ContentStream)
-		objReader = obj.ContentStream
+		objReader = bufio.NewReaderSize(obj.ContentStream, 4*1024*1024)
 	} else {
 		objReader = bytes.NewReader(*obj.Content)
 	}
 	rlReader := ratelimit.NewReader(objReader, st.rlBucket)
+
 	options := azblob.UploadStreamOptions{
 		BlockSize:               0,
 		Concurrency:             0,
