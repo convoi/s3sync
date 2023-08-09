@@ -46,6 +46,7 @@ type Object struct {
 	StorageClass         *string                 `json:"storage_class"`
 	AccessControlPolicy  *s3.AccessControlPolicy `json:"access_control_policy"`
 	ServerSideEncryption *string                 `json:"server_side_encryption"`
+	Attempts             int                     `json:"-"`
 }
 
 // Storage interface.

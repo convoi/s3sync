@@ -76,7 +76,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to setup storage, error: %s", err)
 	}
-	setupPipeline(&syncGroup, &cli)
+	downloadStep := setupPipeline(&syncGroup, &cli)
 
 	log.Info("Starting sync")
 	syncGroup.Run()
@@ -84,14 +84,13 @@ func main() {
 	if cli.ShowProgress {
 		go printLiveStats(ctx, &syncGroup)
 	}
-
-	syncStatus := HandleErrors(sysStopChan, cancel, syncGroup)
+	syncStatus := HandleErrors(sysStopChan, cancel, syncGroup, downloadStep.GetInChan(), int(cli.S3Retry))
 
 	printFinalStats(&syncGroup, syncStatus)
 	log.Exit(int(syncStatus))
 }
 
-func HandleErrors(sysStopChan chan os.Signal, cancel context.CancelFunc, syncGroup pipeline.Group) syncStatus {
+func HandleErrors(sysStopChan chan os.Signal, cancel context.CancelFunc, syncGroup pipeline.Group, backFeed chan *storage.Object, maxRetries int) syncStatus {
 	syncStatus := syncStatusUnknown
 WaitLoop:
 	for {
@@ -135,7 +134,14 @@ WaitLoop:
 			} else if cli.ErrorHandlingMask.Has(storage.HandleErrOther) {
 				var objErr *pipeline.ObjectError
 				if errors.As(err, &objErr) {
-					log.Warnf("Failed to sync object: %s, error: %s, skipping", *objErr.Object.Key, objErr.Err)
+					obj := objErr.Object
+					if obj.Attempts < maxRetries {
+						obj.Attempts++
+						log.Warnf("Failed to sync object: %s, error: %s, retrying (attempt %d)", *objErr.Object.Key, objErr.Err, obj.Attempts)
+						backFeed <- obj
+					} else {
+						log.Warnf("Failed to sync object: %s, error: %s, too many attempts (attempt %d) skipping", *objErr.Object.Key, objErr.Err, obj.Attempts)
+					}
 				} else {
 					log.Warnf("Sync err: %s, skipping", err)
 				}

@@ -16,7 +16,7 @@ type Group struct {
 	Source    storage.Storage
 	Target    storage.Storage
 	StartTime time.Time
-	steps     []Step
+	steps     []*Step
 	errChan   chan error
 	errWg     *sync.WaitGroup
 }
@@ -27,7 +27,7 @@ func NewGroup() Group {
 	group := Group{
 		errChan: make(chan error),
 		errWg:   &sync.WaitGroup{},
-		steps:   make([]Step, 0),
+		steps:   make([]*Step, 0),
 	}
 	return group
 }
@@ -44,7 +44,7 @@ func (group *Group) SetTarget(st storage.Storage) {
 
 // AddPipeStep add pipeline step to group.
 // Steps will executed sequentially, in order of addition.
-func (group *Group) AddPipeStep(step Step) {
+func (group *Group) AddPipeStep(step *Step) {
 	step.errChan = make(chan error)
 	step.workerWg = &sync.WaitGroup{}
 	step.intOutChan = make(chan *storage.Object, step.ChanSize)

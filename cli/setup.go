@@ -81,15 +81,16 @@ func setupStorages(ctx context.Context, syncGroup *pipeline.Group, cli *argsPars
 	return nil
 }
 
-func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
-	syncGroup.AddPipeStep(pipeline.Step{
+func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) *pipeline.Step {
+	listStep := pipeline.Step{
 		Name:     "ListSource",
 		Fn:       collection.ListSourceStorage,
 		ChanSize: cli.ListBuffer,
-	})
+	}
+	syncGroup.AddPipeStep(&listStep)
 
 	if len(cli.FilterExt) > 0 {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "FilterObjByExt",
 			Fn:     collection.FilterObjectsByExt,
 			Config: cli.FilterExt,
@@ -97,7 +98,7 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 
 	if len(cli.FilterExtNot) > 0 {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "FilterObjByExtNot",
 			Fn:     collection.FilterObjectsByExtNot,
 			Config: cli.FilterExtNot,
@@ -111,13 +112,13 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 	if (cli.Source.Type == storage.TypeFS) &&
 		((cli.FilterMtimeAfter > 0) || (cli.FilterMtimeBefore > 0) || cli.FilterModified) {
-		syncGroup.AddPipeStep(loadObjMetaStep)
+		syncGroup.AddPipeStep(&loadObjMetaStep)
 	} else if (cli.Source.Type != storage.TypeSwift) && (len(cli.FilterCT) > 0) || (len(cli.FilterCTNot) > 0) {
-		syncGroup.AddPipeStep(loadObjMetaStep)
+		syncGroup.AddPipeStep(&loadObjMetaStep)
 	}
 
 	if cli.FilterMtimeAfter > 0 {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "FilterObjectsByMtimeAfter",
 			Fn:     collection.FilterObjectsByMtimeAfter,
 			Config: cli.FilterMtimeAfter,
@@ -125,7 +126,7 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 
 	if cli.FilterMtimeBefore > 0 {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "FilterObjectsByMtimeBefore",
 			Fn:     collection.FilterObjectsByMtimeBefore,
 			Config: cli.FilterMtimeBefore,
@@ -133,21 +134,21 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 
 	if cli.FilterDirs {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name: "FilterObjectsDirs",
 			Fn:   collection.FilterObjectsDirs,
 		})
 	}
 
 	if cli.FilterDirsNot {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name: "FilterObjectsDirsNot",
 			Fn:   collection.FilterObjectsDirsNot,
 		})
 	}
 
 	if len(cli.FilterCT) > 0 {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "FilterObjByCT",
 			Fn:     collection.FilterObjectsByCT,
 			Config: cli.FilterCT,
@@ -155,7 +156,7 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 
 	if len(cli.FilterCTNot) > 0 {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "FilterObjByCTNot",
 			Fn:     collection.FilterObjectsByCTNot,
 			Config: cli.FilterCTNot,
@@ -163,40 +164,41 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 
 	if cli.FilterModified {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name: "FilterObjectsModified",
 			Fn:   collection.FilterObjectsModified,
 		})
 	}
 
 	if cli.FilterExist {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name: "FilterObjectsExist",
 			Fn:   collection.FilterObjectsExist,
 		})
 	}
 
 	if cli.FilterExistNot {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name: "FilterObjectsExistNot",
 			Fn:   collection.FilterObjectsExistNot,
 		})
 	}
 
-	syncGroup.AddPipeStep(pipeline.Step{
+	downloadStep := &pipeline.Step{
 		Name:       "LoadObjData",
 		Fn:         collection.LoadObjectData,
 		AddWorkers: cli.Workers,
-	})
+	}
+	syncGroup.AddPipeStep(downloadStep)
 
 	if cli.S3Acl == "copy" && cli.Source.Type == storage.TypeS3 {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:       "LoadObjACL",
 			Fn:         collection.LoadObjectACL,
 			AddWorkers: cli.Workers,
 		})
 	} else if cli.S3Acl != "" {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "ACLUpdater",
 			Fn:     collection.ACLUpdater,
 			Config: cli.S3Acl,
@@ -204,7 +206,7 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 
 	if cli.S3StorageClass != "" {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "StorageClassUpdater",
 			Fn:     collection.StorageClassUpdater,
 			Config: cli.S3StorageClass,
@@ -212,7 +214,7 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 
 	if cli.S3CacheControl != "" {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "CacheControlUpdater",
 			Fn:     collection.CacheControlUpdater,
 			Config: cli.S3CacheControl,
@@ -220,21 +222,21 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 
 	if cli.S3ServerSideEncryption != "" {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "ServerSideEncryption",
 			Fn:     collection.ServerSideEncryptionUpdater,
 			Config: cli.S3ServerSideEncryption,
 		})
 	}
 
-	syncGroup.AddPipeStep(pipeline.Step{
+	syncGroup.AddPipeStep(&pipeline.Step{
 		Name:       "UploadObj",
 		Fn:         collection.UploadObjectData,
 		AddWorkers: cli.Workers,
 	})
 
 	if cli.SyncLog {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "Logger",
 			Fn:     collection.Logger,
 			Config: log,
@@ -242,15 +244,16 @@ func setupPipeline(syncGroup *pipeline.Group, cli *argsParsed) {
 	}
 
 	if cli.RateLimitObjPerSec > 0 {
-		syncGroup.AddPipeStep(pipeline.Step{
+		syncGroup.AddPipeStep(&pipeline.Step{
 			Name:   "RateLimit",
 			Fn:     collection.PipelineRateLimit,
 			Config: cli.RateLimitObjPerSec,
 		})
 	}
 
-	syncGroup.AddPipeStep(pipeline.Step{
+	syncGroup.AddPipeStep(&pipeline.Step{
 		Name: "Terminator",
 		Fn:   collection.Terminator,
 	})
+	return downloadStep
 }

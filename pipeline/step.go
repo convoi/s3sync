@@ -26,6 +26,10 @@ type Step struct {
 	stats      StepStats
 }
 
+func (s *Step) GetInChan() chan *storage.Object {
+	return s.intInChan
+}
+
 // StepStats to keep basic step statistics.
 type StepStats struct {
 	Input  atomic.Uint64
